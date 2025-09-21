@@ -1,19 +1,18 @@
 import express from "express";
 import dotenv from "dotenv";
 import z from "zod";
+import { ConversationRepository } from "./Repositories/conversation.repository.js";
 
+// system setup
 dotenv.config();
 const app = express();
 app.use(express.json());
-
 const PORT = process.env.PORT || 3000;
 
 //Home route
 app.get("/", (req, res) => {
   res.send("Ollama wrapper!");
 });
-
-const conversations = new Map(); // In-memory store for conversations
 
 const chatRequestSchema = z.object({
   userInput: z
@@ -35,8 +34,10 @@ app.post("/chat", async (req, res) => {
 
   try {
     const { userInput, conversationId } = parseResult.data;
-    const conversationHistory = conversations.get(conversationId) || [];
+    const conversationHistory =
+      ConversationRepository.getConversationHistory(conversationId);
 
+    // Call Ollama API
     const response = await fetch(`${process.env.OLLAMA_ENDPOINT}/chat`, {
       method: "POST",
       headers: {
@@ -45,7 +46,7 @@ app.post("/chat", async (req, res) => {
       body: JSON.stringify({
         model: "codellama:7b",
         messages: [
-          ...conversationHistory, // You can implement conversation history management
+          ...conversationHistory,
           {
             role: "user",
             content: userInput,
@@ -57,18 +58,33 @@ app.post("/chat", async (req, res) => {
 
     const data = await response.json();
 
-    // Update conversation history
-    const updatedConversationHistory = [
-      ...conversationHistory,
-      { role: "user", content: userInput },
-      { role: "assistant", content: data.message.content },
-    ];
-    conversations.set(conversationId, updatedConversationHistory);
+    // Update conversation history using repository method
+    // Add createdAt to messages
+    const updatedHistory = ConversationRepository.addMessagesToHistory(
+      conversationId,
+      [
+        {
+          role: "user",
+          content: userInput,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          role: "assistant",
+          content: data.message?.content || "",
+          createdAt: new Date().toISOString(),
+        },
+      ]
+    );
+
+    // Check Ollama API response
+    if (!response.ok) {
+      return res.status(502).json({ error: "Ollama API error" });
+    }
 
     // Send response back to client
     res.json({
       reply: data.message.content,
-      conversationHistory: updatedConversationHistory,
+      conversationHistory: updatedHistory,
     });
   } catch (error) {
     res.status(500).json({ error: "Internal Server Error" });
