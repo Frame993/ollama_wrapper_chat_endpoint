@@ -20,17 +20,13 @@ const chatRequestSchema = z.object({
     .string()
     .trim()
     .min(1, "message cannot be empty")
-    .max(1000, "message is too long"),
+    .max(100, "message is too long"),
   conversationId: z.uuid(),
 });
 
 //Chat endpoint
 app.post("/chat", async (req, res) => {
-  const { userInput, conversationId } = req.body;
-  const parseResult = chatRequestSchema.safeParse({
-    userInput,
-    conversationId,
-  });
+  const parseResult = chatRequestSchema.safeParse(req.body);
 
   if (!parseResult.success) {
     res.status(400).json({ error: parseResult.error.issues });
@@ -38,6 +34,7 @@ app.post("/chat", async (req, res) => {
   }
 
   try {
+    const { userInput, conversationId } = parseResult.data;
     const conversationHistory = conversations.get(conversationId) || [];
 
     const response = await fetch(`${process.env.OLLAMA_ENDPOINT}/chat`, {
@@ -69,7 +66,10 @@ app.post("/chat", async (req, res) => {
     conversations.set(conversationId, updatedConversationHistory);
 
     // Send response back to client
-    res.json({ reply: data.message.content , conversationHistory: updatedConversationHistory});
+    res.json({
+      reply: data.message.content,
+      conversationHistory: updatedConversationHistory,
+    });
   } catch (error) {
     res.status(500).json({ error: "Internal Server Error" });
   }
