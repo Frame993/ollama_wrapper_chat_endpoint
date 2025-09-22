@@ -1,7 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import z from "zod";
-import { ConversationRepository } from "./Repositories/conversation.repository.js";
+import { ConversationRepository } from "./repositories/conversation.repository.js";
 
 // system setup
 dotenv.config();
