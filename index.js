@@ -1,7 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import z from "zod";
-import { ConversationRepository } from "./repositories/conversation.repository.js";
+import { ChatService } from "./services/chat.service.js";
 
 // system setup
 dotenv.config();
@@ -34,58 +34,11 @@ app.post("/chat", async (req, res) => {
 
   try {
     const { userInput, conversationId } = parseResult.data;
-    const conversationHistory =
-      ConversationRepository.getConversationHistory(conversationId);
-
-    // Call Ollama API
-    const response = await fetch(`${process.env.OLLAMA_ENDPOINT}/chat`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "codellama:7b",
-        messages: [
-          ...conversationHistory,
-          {
-            role: "user",
-            content: userInput,
-          },
-        ],
-        stream: false,
-      }),
-    });
-
-    const data = await response.json();
-
-    // Update conversation history using repository method
-    // Add createdAt to messages
-    const updatedHistory = ConversationRepository.addMessagesToHistory(
-      conversationId,
-      [
-        {
-          role: "user",
-          content: userInput,
-          createdAt: new Date().toISOString(),
-        },
-        {
-          role: "assistant",
-          content: data.message?.content || "",
-          createdAt: new Date().toISOString(),
-        },
-      ]
+    const chatResponse = await ChatService.sendMessage(
+      userInput,
+      conversationId
     );
-
-    // Check Ollama API response
-    if (!response.ok) {
-      return res.status(502).json({ error: "Ollama API error" });
-    }
-
-    // Send response back to client
-    res.json({
-      reply: data.message.content,
-      conversationHistory: updatedHistory,
-    });
+    res.json(chatResponse);
   } catch (error) {
     res.status(500).json({ error: "Internal Server Error" });
   }
