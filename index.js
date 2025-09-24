@@ -1,20 +1,13 @@
 import express from "express";
 import dotenv from "dotenv";
-import { ChatController } from "./controller/chat.controller.js";
+import router from "./routes.js";
 
 // system setup
 dotenv.config();
 const app = express();
-app.use(express.json());
+app.use(express.json()); // Middleware to parse JSON request bodies
+app.use(router);
 const PORT = process.env.PORT || 3000;
-
-//Home route
-app.get("/", (req, res) => {
-  res.send("Ollama wrapper!");
-});
-
-//Chat endpoint
-app.post("/chat", ChatController.sendMessage);
 
 //Start server
 app.listen(PORT, () => {
